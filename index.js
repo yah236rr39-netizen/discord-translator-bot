@@ -1,3 +1,9 @@
+const http = require('http');
+http.createServer((req, res) => {
+  res.write('Bot is running!');
+  res.end();
+}).listen(process.env.PORT || 10000);
+
 const { Client, GatewayIntentBits } = require('discord.js');
 const axios = require('axios');
 

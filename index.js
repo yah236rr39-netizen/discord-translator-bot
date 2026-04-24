@@ -31,16 +31,24 @@ const channels = {
   cn: '1496463528326991913'
 };
 
-// 4. OpenAI 翻譯函式
-async function translate(text, targetLang) {
+// 🌍 翻譯函式 (確保前面有 async)
+async function translate(text, targetLanguage) {
   try {
-
-    const languageMap = {
-      'zh-TW': 'Traditional Chinese',
-      'zh-CN': 'Simplified Chinese',
-      'en': 'English',
-      'vi': 'Vietnamese'
-    };
+    // 這裡就是你截圖報錯的地方，加上 async 後它就合法了！
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a professional translator for a gaming guild. Translate naturally." },
+        { role: "user", content: `Translate this to ${targetLanguage}:\n\n${text}` }
+      ],
+      temperature: 0.2
+    });
+    return response.choices[0].message.content.trim();
+  } catch (e) {
+    console.error("OpenAI 報錯了:", e.message);
+    return null;
+  }
+}
 
     const targetLanguage = languageMap[targetLang];
 

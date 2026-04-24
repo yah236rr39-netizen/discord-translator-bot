@@ -51,7 +51,8 @@ async function translate(text, target) {
   }
 }
 
-client.on('messageCreate', async (msg) => {
+client.on('messageCreate', async (msg) =>
+{
   // 1. 排除機器人訊息
   if (msg.author.bot) return;
 
@@ -73,12 +74,15 @@ client.on('messageCreate', async (msg) => {
   const targets = Object.keys(channels).filter(lang => lang !== sourceLang);
 
   for (const langKey of targets) {
+    // 💡 這裡一定要在 async 裡面跑 translate
     const translation = await translate(msg.content, targetMap[langKey].lang);
+    
     if (translation) {
       const targetChannel = client.channels.cache.get(channels[langKey]);
       if (targetChannel) {
-        // 💡 關鍵：優先使用群組內的「顯示名稱 (displayName)」
+        // 抓取暱稱
         const senderName = msg.member ? msg.member.displayName : msg.author.username;
+        // 💡 這裡發送訊息也要 await
         await targetChannel.send(`${targetMap[sourceLang].emoji} **${senderName}**: ${translation}`);
       }
     }

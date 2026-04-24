@@ -34,12 +34,41 @@ const channels = {
 // 4. OpenAI 翻譯函式
 async function translate(text, targetLang) {
   try {
+
     const languageMap = {
       'zh-TW': 'Traditional Chinese',
       'zh-CN': 'Simplified Chinese',
       'en': 'English',
       'vi': 'Vietnamese'
     };
+
+    const targetLanguage = languageMap[targetLang];
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional translator for a gaming guild."
+        },
+        {
+          role: "user",
+          content: `Translate this text to ${targetLanguage}: ${text}`
+        }
+      ],
+      temperature: 0.2
+    });
+
+    return response.choices[0].message.content.trim();
+
+  } catch (e) {
+
+    console.error("❌ Translation error:");
+    console.error(e.response?.data || e.message);
+
+    return null;
+  }
+}
 
     const targetLanguage = languageMap[targetLang] || targetLang;
 

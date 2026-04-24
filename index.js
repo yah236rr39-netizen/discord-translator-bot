@@ -1,80 +1,74 @@
 const http = require('http');
 const { Client, GatewayIntentBits } = require('discord.js');
-const OpenAI = require('openai'); // 引入 OpenAI
+const OpenAI = require('openai'); // 1. 改成引入 OpenAI
 
-// 1. OpenAI 初始化 (會去抓你在 Render 設定的 KEY)
+// 2. OpenAI 初始化 (會讀取你 Render 上的環境變數)
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 2. 防止 Render 休息的伺服器
+// 防止 Render 休息
 http.createServer((req, res) => {
   res.write('Bot is running!');
   res.end();
 }).listen(process.env.PORT || 10000);
 
-// 3. 初始化 Discord 機器人
+// 初始化機器人 (保持原樣)
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers, // 抓暱稱需要這個
+    GatewayIntentBits.GuildMembers, 
   ],
 });
 
-// 4. 頻道設定
+// 頻道設定 (保持你的 ID)
 const channels = {
-  zh: '1496614451812503572', // 繁中
-  en: '1496562571480666183', // 英文
-  vi: '1496562468707631205', // 越南
-  cn: '1496463528326991913'  // 簡中
+  zh: '1496614451812503572',
+  en: '1496562571480666183',
+  vi: '1496562468707631205',
+  cn: '1496463528326991913'
 };
 
-// 5. ⭐ OpenAI 翻譯引擎 (取代原本的 Axios 邏輯)
+// 3. ⭐ 翻譯功能 (核心改為 OpenAI)
 async function translate(text, targetLangName) {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // 使用最划算且快速的模型
+      model: "gpt-4o-mini", // 使用效能最好的 mini 模型
       messages: [
         {
           role: "system",
-          content: `You are a professional translator for a gaming guild. Translate the following text into ${targetLangName} accurately and naturally. Keep the original meaning and any gaming slang if possible.`
+          content: `You are a professional translator for a gaming guild. Translate accurately into ${targetLangName}.`
         },
         {
           role: "user",
           content: text
         }
       ],
-      temperature: 0.3
+      temperature: 0.3 // 數值低一點翻譯會比較精準
     });
     return response.choices[0].message.content.trim();
   } catch (e) {
-    console.error('OpenAI 翻譯發生錯誤:', e.message);
+    console.error("AI 翻譯錯誤:", e.message);
     return null;
   }
 }
 
-// 啟動檢查
+// 啟動顯示
 client.on('ready', () => {
-  console.log('---------------------------------------');
-  console.log(`✅ 兄弟！SUn 翻譯官 [${client.user.tag}] 已上線！`);
-  console.log('OpenAI 引擎已啟動，四路頻道監控中...');
-  console.log('---------------------------------------');
+  console.log(`✅ 兄弟！SUn 翻譯官 [${client.user.tag}] 成功上線！`);
 });
 
-// 6. 核心轉發邏輯 (保留你最愛的格式)
+// 4. 核心邏輯 (四路互通格式)
 client.on('messageCreate', async (msg) => {
-  // 排除機器人訊息
   if (msg.author.bot) return;
 
-  // 判斷訊息來源頻道
+  // 判斷來源頻道
   const sourceLang = Object.keys(channels).find(key => channels[key] === msg.channel.id);
   if (!sourceLang) return;
 
-  console.log(`收到來自 [${sourceLang}] 的訊息，正在使用 AI 翻譯...`);
-
-  // 設定各國語言名稱 (讓 AI 好理解) 與 Emoji
+  // 這裡我們定義一下語言名稱，讓 AI 更好懂
   const langConfig = {
     zh: { name: 'Traditional Chinese', emoji: '🇹🇼' },
     en: { name: 'English',             emoji: '🇺🇸' },
@@ -82,19 +76,21 @@ client.on('messageCreate', async (msg) => {
     cn: { name: 'Simplified Chinese',  emoji: '🇨🇳' }
   };
 
-  // 找出需要翻譯的目標
+  // 找出所有「不是來源」的目標
   const targets = Object.keys(channels).filter(lang => lang !== sourceLang);
 
+  // 開始翻譯與分發
   for (const langKey of targets) {
-    // 呼叫 AI 翻譯
+    // 調用 OpenAI 翻譯
     const translation = await translate(msg.content, langConfig[langKey].name);
     
     if (translation) {
       const targetChannel = client.channels.cache.get(channels[langKey]);
       if (targetChannel) {
-        // 抓取暱稱 (displayName)
+        // 抓取暱稱或名稱
         const senderName = msg.member ? msg.member.displayName : msg.author.username;
-        // 發送格式：[國旗] [發言者]: [翻譯內容]
+        
+        // 發送格式：[來源國旗] [發言者]: [翻譯內容]
         await targetChannel.send(`${langConfig[sourceLang].emoji} **${senderName}**: ${translation}`);
       }
     }

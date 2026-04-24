@@ -12,6 +12,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent, 
+    GatewayIntentBits.GuildMembers, // 👈 為了抓暱稱，這個也要開
   ],
 });
 
@@ -31,7 +32,7 @@ const channels = {
   cn: '1496463528326991913'  // 簡中
 };
 
-// 🌍 翻譯函式 (保留你原本的邏輯)
+// 🌍 翻譯函式
 async function translate(text, target) {
   try {
     const res = await axios.get('https://translate.googleapis.com/translate_a/single', {
@@ -51,18 +52,16 @@ async function translate(text, target) {
 }
 
 client.on('messageCreate', async (msg) => {
-  // 1. 排除機器人自己的訊息 (極度重要，避免無限循環)
+  // 1. 排除機器人訊息
   if (msg.author.bot) return;
 
-  // 2. 判斷這條訊息是從哪個頻道發出來的
+  // 2. 判斷訊息來源頻道
   const sourceLang = Object.keys(channels).find(key => channels[key] === msg.channel.id);
-  
-  // 3. 如果訊息不是在那四個頻道發的，就不理它
   if (!sourceLang) return;
 
-  console.log(`收到來自 [${sourceLang}] 的訊息: ${msg.content}，正在分發翻譯...`);
+  console.log(`收到來自 [${sourceLang}] 的訊息，正在分發翻譯...`);
 
-  // 4. 設定各國對應的 Google 翻譯代碼
+  // 3. 設定各國對應代碼
   const targetMap = {
     zh: { lang: 'zh-TW', emoji: '🇹🇼' },
     en: { lang: 'en',    emoji: '🇺🇸' },
@@ -70,13 +69,23 @@ client.on('messageCreate', async (msg) => {
     cn: { lang: 'zh-CN', emoji: '🇨🇳' }
   };
 
-  // 5. 找出需要翻譯的目標（排除發言來源）
+  // 4. 找出目標頻道 (排除發言地)
   const targets = Object.keys(channels).filter(lang => lang !== sourceLang);
 
   for (const langKey of targets) {
     const translation = await translate(msg.content, targetMap[langKey].lang);
     if (translation) {
       const targetChannel = client.channels.cache.get(channels[langKey]);
+      if (targetChannel) {
+        // 💡 關鍵：優先使用群組內的「顯示名稱 (displayName)」
+        const senderName = msg.member ? msg.member.displayName : msg.author.username;
+        await targetChannel.send(`${targetMap[sourceLang].emoji} **${senderName}**: ${translation}`);
+      }
+    }
+  }
+});
+
+client.login(process.env.TOKEN);
       if (targetChannel) {
         // 發送格式：[發言者]: [翻譯內容]
         await targetChannel.send(`${targetMap[sourceLang].emoji} **${msg.author.username}**: ${translation}`);

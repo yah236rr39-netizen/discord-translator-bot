@@ -1,68 +1,57 @@
 const http = require('http');
+const { Client, GatewayIntentBits } = require('discord.js');
+const axios = require('axios');
+
+// 1. 防止 Render 休息
 http.createServer((req, res) => {
   res.write('Bot is running!');
   res.end();
 }).listen(process.env.PORT || 10000);
 
-const { Client, GatewayIntentBits } = require('discord.js');
-const axios = require('axios');
-
+// 2. 初始化機器人
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent, 
-    GatewayIntentBits.GuildMembers, // 👈 為了抓暱稱，這個也要開
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers, 
   ],
 });
 
-// 啟動檢查
-client.on('ready', () => {
-  console.log('---------------------------------------');
-  console.log(`✅ 兄弟！機器人 [${client.user.tag}] 已經成功上線了！`);
-  console.log('現在去 Discord 頻道打字測試看看吧！');
-  console.log('---------------------------------------');
-});
-
-// 🔑 四個頻道的對應 ID
+// 3. 頻道設定
 const channels = {
-  zh: '1496614451812503572', // 繁中
-  en: '1496562571480666183', // 英文
-  vi: '1496562468707631205', // 越南
-  cn: '1496463528326991913'  // 簡中
+  zh: '1496614451812503572',
+  en: '1496562571480666183',
+  vi: '1496562468707631205',
+  cn: '1496463528326991913'
 };
 
-// 🌍 翻譯函式
+// 4. 翻譯功能
 async function translate(text, target) {
   try {
     const res = await axios.get('https://translate.googleapis.com/translate_a/single', {
-      params: {
-        client: 'gtx',
-        sl: 'auto',
-        tl: target,
-        dt: 't',
-        q: text
-      }
+      params: { client: 'gtx', sl: 'auto', tl: target, dt: 't', q: text }
     });
     return res.data[0][0][0];
-  } catch (e) { 
-    console.error('翻譯失敗:', e);
-    return null; 
+  } catch (e) {
+    return null;
   }
 }
 
-client.on('messageCreate', async (msg) =>
-{
-  // 1. 排除機器人訊息
+// 5. 啟動顯示
+client.on('ready', () => {
+  console.log(`✅ 兄弟！機器人 [${client.user.tag}] 成功上線！`);
+});
+
+// 6. 核心邏輯 (確保這裡有 async)
+client.on('messageCreate', async (msg) => {
+  // 排除機器人
   if (msg.author.bot) return;
 
-  // 2. 判斷訊息來源頻道
+  // 判斷來源頻道
   const sourceLang = Object.keys(channels).find(key => channels[key] === msg.channel.id);
   if (!sourceLang) return;
 
-  console.log(`收到來自 [${sourceLang}] 的訊息，正在分發翻譯...`);
-
-  // 3. 設定各國對應代碼
   const targetMap = {
     zh: { lang: 'zh-TW', emoji: '🇹🇼' },
     en: { lang: 'en',    emoji: '🇺🇸' },
@@ -70,29 +59,18 @@ client.on('messageCreate', async (msg) =>
     cn: { lang: 'zh-CN', emoji: '🇨🇳' }
   };
 
-  // 4. 找出目標頻道 (排除發言地)
   const targets = Object.keys(channels).filter(lang => lang !== sourceLang);
 
+  // 開始翻譯與發送
   for (const langKey of targets) {
-    // 💡 這裡一定要在 async 裡面跑 translate
     const translation = await translate(msg.content, targetMap[langKey].lang);
-    
     if (translation) {
       const targetChannel = client.channels.cache.get(channels[langKey]);
       if (targetChannel) {
-        // 抓取暱稱
+        // 抓取暱稱或名稱
         const senderName = msg.member ? msg.member.displayName : msg.author.username;
-        // 💡 這裡發送訊息也要 await
+        // 這裡就是你截圖報錯的地方，現在它被包在 async 裡面了！
         await targetChannel.send(`${targetMap[sourceLang].emoji} **${senderName}**: ${translation}`);
-      }
-    }
-  }
-});
-
-client.login(process.env.TOKEN);
-      if (targetChannel) {
-        // 發送格式：[發言者]: [翻譯內容]
-        await targetChannel.send(`${targetMap[sourceLang].emoji} **${msg.author.username}**: ${translation}`);
       }
     }
   }

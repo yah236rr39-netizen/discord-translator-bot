@@ -1,166 +1,101 @@
 const http = require('http');
 const { Client, GatewayIntentBits } = require('discord.js');
-const OpenAI = require('openai');
+const OpenAI = require('openai'); // 引入 OpenAI
 
-// OpenAI 初始化
+// 1. OpenAI 初始化 (會去抓你在 Render 設定的 KEY)
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 1. 防止 Render 休息
+// 2. 防止 Render 休息的伺服器
 http.createServer((req, res) => {
   res.write('Bot is running!');
   res.end();
 }).listen(process.env.PORT || 10000);
 
-// 2. 初始化機器人
+// 3. 初始化 Discord 機器人
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMembers, // 抓暱稱需要這個
   ],
 });
 
-// 3. 頻道設定
+// 4. 頻道設定
 const channels = {
-  zh: '1496614451812503572',
-  en: '1496562571480666183',
-  vi: '1496562468707631205',
-  cn: '1496463528326991913'
+  zh: '1496614451812503572', // 繁中
+  en: '1496562571480666183', // 英文
+  vi: '1496562468707631205', // 越南
+  cn: '1496463528326991913'  // 簡中
 };
 
-// 🌍 翻譯函式 (確保前面有 async)
-async function translate(text, targetLanguage) {
+// 5. ⭐ OpenAI 翻譯引擎 (取代原本的 Axios 邏輯)
+async function translate(text, targetLangName) {
   try {
-    // 這裡就是你截圖報錯的地方，加上 async 後它就合法了！
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a professional translator for a gaming guild. Translate naturally." },
-        { role: "user", content: `Translate this to ${targetLanguage}:\n\n${text}` }
-      ],
-      temperature: 0.2
-    });
-    return response.choices[0].message.content.trim();
-  } catch (e) {
-    console.error("OpenAI 報錯了:", e.message);
-    return null;
-  }
-}
-
-    const targetLanguage = languageMap[targetLang];
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o-mini", // 使用最划算且快速的模型
       messages: [
         {
           role: "system",
-          content: "You are a professional translator for a gaming guild."
+          content: `You are a professional translator for a gaming guild. Translate the following text into ${targetLangName} accurately and naturally. Keep the original meaning and any gaming slang if possible.`
         },
         {
           role: "user",
-          content: `Translate this text to ${targetLanguage}: ${text}`
+          content: text
         }
       ],
-      temperature: 0.2
+      temperature: 0.3
     });
-
     return response.choices[0].message.content.trim();
-
   } catch (e) {
-
-    console.error("❌ Translation error:");
-    console.error(e.response?.data || e.message);
-
+    console.error('OpenAI 翻譯發生錯誤:', e.message);
     return null;
   }
 }
 
-    const targetLanguage = languageMap[targetLang] || targetLang;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // 💡 修正了模型名稱
-      messages: [
-        {
-          role: "system",
-          content: "You are a professional translator for a gaming guild. Translate accurately and naturally."
-        },
-        {
-          role: "user",
-          content: `Translate this text to ${targetLanguage}:\n\n${text}`
-        }
-      ],
-      temperature: 0.2
-    });
-
-    return response.choices[0].message.content.trim();
-  } catch (e) {
-    console.error("Translation error:", e);
-    return null;
-  }
-}
-
-// 5. 啟動顯示
+// 啟動檢查
 client.on('ready', () => {
-  console.log(`✅ 兄弟！SUn 翻譯官 [${client.user.tag}] 成功上線！`);
+  console.log('---------------------------------------');
+  console.log(`✅ 兄弟！SUn 翻譯官 [${client.user.tag}] 已上線！`);
+  console.log('OpenAI 引擎已啟動，四路頻道監控中...');
+  console.log('---------------------------------------');
 });
 
-// 6. 核心邏輯
+// 6. 核心轉發邏輯 (保留你最愛的格式)
 client.on('messageCreate', async (msg) => {
-  // 1. 機器人說話不理它，避免無限循環
+  // 排除機器人訊息
   if (msg.author.bot) return;
 
-  // 2. 定義四個頻道的 ID 與對應語言名稱
- // 修正 langConfig（加入 langCode）
+  // 判斷訊息來源頻道
+  const sourceLang = Object.keys(channels).find(key => channels[key] === msg.channel.id);
+  if (!sourceLang) return;
 
-const langConfig = {
-  '1496614451812503572': {
-    name: 'Traditional Chinese',
-    emoji: '🇹🇼',
-    langCode: 'zh-TW'
-  },
-  '1496562571480666183': {
-    name: 'English',
-    emoji: '🇺🇸',
-    langCode: 'en'
-  },
-  '1496562468707631205': {
-    name: 'Vietnamese',
-    emoji: '🇻🇳',
-    langCode: 'vi'
-  },
-  '1496463528326991913': {
-    name: 'Simplified Chinese',
-    emoji: '🇨🇳',
-    langCode: 'zh-CN'
-  }
-};
+  console.log(`收到來自 [${sourceLang}] 的訊息，正在使用 AI 翻譯...`);
 
-  // 3. 檢查目前發言的頻道 ID 是否在我們的清單中
-  const source = langConfig[msg.channel.id];
-  if (!source) return; // 如果不是這四個頻道，就不翻譯
+  // 設定各國語言名稱 (讓 AI 好理解) 與 Emoji
+  const langConfig = {
+    zh: { name: 'Traditional Chinese', emoji: '🇹🇼' },
+    en: { name: 'English',             emoji: '🇺🇸' },
+    vi: { name: 'Vietnamese',          emoji: '🇻🇳' },
+    cn: { name: 'Simplified Chinese',  emoji: '🇨🇳' }
+  };
 
-  console.log(`[SUn 翻譯系統] 收到來自 ${source.emoji} 頻道的訊息，正在處理...`);
+  // 找出需要翻譯的目標
+  const targets = Object.keys(channels).filter(lang => lang !== sourceLang);
 
-  // 4. 準備發送到其他三個頻道
-  const targetIds = Object.keys(langConfig).filter(id => id !== msg.channel.id);
-
-  for (const targetId of targetIds) {
-    const target = langConfig[targetId];
-    
-    // 💡 這裡直接把目標語言的「英文全名」丟給 OpenAI，它最聽得懂
-    const translation = await translate(msg.content, target.langCode);
+  for (const langKey of targets) {
+    // 呼叫 AI 翻譯
+    const translation = await translate(msg.content, langConfig[langKey].name);
     
     if (translation) {
-      const targetChannel = client.channels.cache.get(targetId);
+      const targetChannel = client.channels.cache.get(channels[langKey]);
       if (targetChannel) {
-        // 優先抓群組暱稱
+        // 抓取暱稱 (displayName)
         const senderName = msg.member ? msg.member.displayName : msg.author.username;
-        
-        // 發送格式：[來源國旗] **暱稱**: 翻譯內容
-        await targetChannel.send(`${source.emoji} **${senderName}**: ${translation}`);
+        // 發送格式：[國旗] [發言者]: [翻譯內容]
+        await targetChannel.send(`${langConfig[sourceLang].emoji} **${senderName}**: ${translation}`);
       }
     }
   }

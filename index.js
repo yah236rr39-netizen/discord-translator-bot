@@ -76,12 +76,30 @@ client.on('messageCreate', async (msg) => {
   if (msg.author.bot) return;
 
   // 2. 定義四個頻道的 ID 與對應語言名稱
-  const langConfig = {
-    '1496614451812503572': { name: 'Traditional Chinese', emoji: '🇹🇼', key: 'zh' },
-    '1496562571480666183': { name: 'English',             emoji: '🇺🇸', key: 'en' },
-    '1496562468707631205': { name: 'Vietnamese',          emoji: '🇻🇳', key: 'vi' },
-    '1496463528326991913': { name: 'Simplified Chinese',  emoji: '🇨🇳', key: 'cn' }
-  };
+ // 修正 langConfig（加入 langCode）
+
+const langConfig = {
+  '1496614451812503572': {
+    name: 'Traditional Chinese',
+    emoji: '🇹🇼',
+    langCode: 'zh-TW'
+  },
+  '1496562571480666183': {
+    name: 'English',
+    emoji: '🇺🇸',
+    langCode: 'en'
+  },
+  '1496562468707631205': {
+    name: 'Vietnamese',
+    emoji: '🇻🇳',
+    langCode: 'vi'
+  },
+  '1496463528326991913': {
+    name: 'Simplified Chinese',
+    emoji: '🇨🇳',
+    langCode: 'zh-CN'
+  }
+};
 
   // 3. 檢查目前發言的頻道 ID 是否在我們的清單中
   const source = langConfig[msg.channel.id];
@@ -96,7 +114,7 @@ client.on('messageCreate', async (msg) => {
     const target = langConfig[targetId];
     
     // 💡 這裡直接把目標語言的「英文全名」丟給 OpenAI，它最聽得懂
-    const translation = await translate(msg.content, target.name);
+    const translation = await translate(msg.content, target.langCode);
     
     if (translation) {
       const targetChannel = client.channels.cache.get(targetId);

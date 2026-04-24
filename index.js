@@ -1,6 +1,11 @@
 const http = require('http');
 const { Client, GatewayIntentBits } = require('discord.js');
-const axios = require('axios');
+const OpenAI = require('openai');
+
+// OpenAI 初始化
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // 1. 防止 Render 休息
 http.createServer((req, res) => {
@@ -14,7 +19,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers, 
+    GatewayIntentBits.GuildMembers,
   ],
 });
 
@@ -26,29 +31,49 @@ const channels = {
   cn: '1496463528326991913'
 };
 
-// 4. 翻譯功能
-async function translate(text, target) {
+// 4. OpenAI 翻譯函式
+async function translate(text, targetLang) {
   try {
-    const res = await axios.get('https://translate.googleapis.com/translate_a/single', {
-      params: { client: 'gtx', sl: 'auto', tl: target, dt: 't', q: text }
+    const languageMap = {
+      'zh-TW': 'Traditional Chinese',
+      'zh-CN': 'Simplified Chinese',
+      'en': 'English',
+      'vi': 'Vietnamese'
+    };
+
+    const targetLanguage = languageMap[targetLang] || targetLang;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // 💡 修正了模型名稱
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional translator for a gaming guild. Translate accurately and naturally."
+        },
+        {
+          role: "user",
+          content: `Translate this text to ${targetLanguage}:\n\n${text}`
+        }
+      ],
+      temperature: 0.2
     });
-    return res.data[0][0][0];
+
+    return response.choices[0].message.content.trim();
   } catch (e) {
+    console.error("Translation error:", e);
     return null;
   }
 }
 
 // 5. 啟動顯示
 client.on('ready', () => {
-  console.log(`✅ 兄弟！機器人 [${client.user.tag}] 成功上線！`);
+  console.log(`✅ 兄弟！SUn 翻譯官 [${client.user.tag}] 成功上線！`);
 });
 
-// 6. 核心邏輯 (確保這裡有 async)
+// 6. 核心邏輯
 client.on('messageCreate', async (msg) => {
-  // 排除機器人
   if (msg.author.bot) return;
 
-  // 判斷來源頻道
   const sourceLang = Object.keys(channels).find(key => channels[key] === msg.channel.id);
   if (!sourceLang) return;
 
@@ -61,15 +86,12 @@ client.on('messageCreate', async (msg) => {
 
   const targets = Object.keys(channels).filter(lang => lang !== sourceLang);
 
-  // 開始翻譯與發送
   for (const langKey of targets) {
     const translation = await translate(msg.content, targetMap[langKey].lang);
     if (translation) {
       const targetChannel = client.channels.cache.get(channels[langKey]);
       if (targetChannel) {
-        // 抓取暱稱或名稱
         const senderName = msg.member ? msg.member.displayName : msg.author.username;
-        // 這裡就是你截圖報錯的地方，現在它被包在 async 裡面了！
         await targetChannel.send(`${targetMap[sourceLang].emoji} **${senderName}**: ${translation}`);
       }
     }

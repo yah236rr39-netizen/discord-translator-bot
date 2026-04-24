@@ -11,8 +11,9 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+    GatewayIntentBits.MessageContent, 
+// 👈 重點是這一行，一定要有
+],
 });
 
 // 這裡我加了一個啟動檢查

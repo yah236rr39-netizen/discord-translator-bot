@@ -72,27 +72,40 @@ client.on('ready', () => {
 
 // 6. 核心邏輯
 client.on('messageCreate', async (msg) => {
+  // 1. 機器人說話不理它，避免無限循環
   if (msg.author.bot) return;
 
-  const sourceLang = Object.keys(channels).find(key => channels[key] === msg.channel.id);
-  if (!sourceLang) return;
-
-  const targetMap = {
-    zh: { lang: 'zh-TW', emoji: '🇹🇼' },
-    en: { lang: 'en',    emoji: '🇺🇸' },
-    vi: { lang: 'vi',    emoji: '🇻🇳' },
-    cn: { lang: 'zh-CN', emoji: '🇨🇳' }
+  // 2. 定義四個頻道的 ID 與對應語言名稱
+  const langConfig = {
+    '1496614451812503572': { name: 'Traditional Chinese', emoji: '🇹🇼', key: 'zh' },
+    '1496562571480666183': { name: 'English',             emoji: '🇺🇸', key: 'en' },
+    '1496562468707631205': { name: 'Vietnamese',          emoji: '🇻🇳', key: 'vi' },
+    '1496463528326991913': { name: 'Simplified Chinese',  emoji: '🇨🇳', key: 'cn' }
   };
 
-  const targets = Object.keys(channels).filter(lang => lang !== sourceLang);
+  // 3. 檢查目前發言的頻道 ID 是否在我們的清單中
+  const source = langConfig[msg.channel.id];
+  if (!source) return; // 如果不是這四個頻道，就不翻譯
 
-  for (const langKey of targets) {
-    const translation = await translate(msg.content, targetMap[langKey].lang);
+  console.log(`[SUn 翻譯系統] 收到來自 ${source.emoji} 頻道的訊息，正在處理...`);
+
+  // 4. 準備發送到其他三個頻道
+  const targetIds = Object.keys(langConfig).filter(id => id !== msg.channel.id);
+
+  for (const targetId of targetIds) {
+    const target = langConfig[targetId];
+    
+    // 💡 這裡直接把目標語言的「英文全名」丟給 OpenAI，它最聽得懂
+    const translation = await translate(msg.content, target.name);
+    
     if (translation) {
-      const targetChannel = client.channels.cache.get(channels[langKey]);
+      const targetChannel = client.channels.cache.get(targetId);
       if (targetChannel) {
+        // 優先抓群組暱稱
         const senderName = msg.member ? msg.member.displayName : msg.author.username;
-        await targetChannel.send(`${targetMap[sourceLang].emoji} **${senderName}**: ${translation}`);
+        
+        // 發送格式：[來源國旗] **暱稱**: 翻譯內容
+        await targetChannel.send(`${source.emoji} **${senderName}**: ${translation}`);
       }
     }
   }

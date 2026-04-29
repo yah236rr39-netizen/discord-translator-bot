@@ -10,10 +10,12 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "dependencies": {
+ "dependencies": {
+    "@vitalets/google-translate-api": "^9.0.0",
     "axios": "^1.15.2",
     "discord.js": "^14.26.3",
     "dotenv": "^17.4.2",
-    "openai": "^4.0.0"
+    "undici": "^5.0.0"
+  }
   }
 }

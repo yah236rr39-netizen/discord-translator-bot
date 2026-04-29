@@ -1,14 +1,15 @@
 const http = require('http');
 const { Client, GatewayIntentBits } = require('discord.js');
-const axios = require('axios');
+// 1. 換掉 axios，改用這個
+const { translate } = require('@vitalets/google-translate-api');
 
-// 1. 防止 Render 休息
+// 1. 防止 Render 休息 (維持原樣)
 http.createServer((req, res) => {
   res.write('Bot is running!');
   res.end();
 }).listen(process.env.PORT || 10000);
 
-// 2. 初始化機器人
+// 2. 初始化機器人 (維持原樣)
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -18,7 +19,7 @@ const client = new Client({
   ],
 });
 
-// 3. 頻道設定
+// 3. 頻道設定 (維持原樣)
 const channels = {
   zh: '1496614451812503572',
   en: '1496562571480666183',
@@ -26,29 +27,35 @@ const channels = {
   cn: '1496463528326991913'
 };
 
-// 4. 翻譯功能
-async function translate(text, target) {
+// 4. 翻譯功能 (核心改造：換成新的引擎)
+async function translateText(text, target) {
   try {
-    const res = await axios.get('https://translate.googleapis.com/translate_a/single', {
-      params: { client: 'gtx', sl: 'auto', tl: target, dt: 't', q: text }
+    const res = await translate(text, { 
+      to: target, 
+      autoCorrect: true,
+      // 這裡加個偽裝，避免被 Google 當成機器人
+      fetchOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      }
     });
-    return res.data[0][0][0];
+    return res.text; // 新引擎回傳的是 .text
   } catch (e) {
+    console.error('❌ 翻譯出包了:', e.message);
     return null;
   }
 }
 
 // 5. 啟動顯示
 client.on('ready', () => {
-  console.log(`✅ 兄弟！機器人 [${client.user.tag}] 成功上線！`);
+  console.log(`✅ 兄弟！SUn 翻譯官 [${client.user.tag}] 成功上線！`);
 });
 
-// 6. 核心邏輯 (確保這裡有 async)
+// 6. 核心邏輯
 client.on('messageCreate', async (msg) => {
-  // 排除機器人
   if (msg.author.bot) return;
 
-  // 判斷來源頻道
   const sourceLang = Object.keys(channels).find(key => channels[key] === msg.channel.id);
   if (!sourceLang) return;
 
@@ -61,15 +68,15 @@ client.on('messageCreate', async (msg) => {
 
   const targets = Object.keys(channels).filter(lang => lang !== sourceLang);
 
-  // 開始翻譯與發送
   for (const langKey of targets) {
-    const translation = await translate(msg.content, targetMap[langKey].lang);
+    // 調用我們改好的新翻譯函式
+    const translation = await translateText(msg.content, targetMap[langKey].lang);
+    
     if (translation) {
       const targetChannel = client.channels.cache.get(channels[langKey]);
       if (targetChannel) {
-        // 抓取暱稱或名稱
         const senderName = msg.member ? msg.member.displayName : msg.author.username;
-        // 這裡就是你截圖報錯的地方，現在它被包在 async 裡面了！
+        // 加上來源國旗，讓公會兄弟知道是哪翻過來的
         await targetChannel.send(`${targetMap[sourceLang].emoji} **${senderName}**: ${translation}`);
       }
     }

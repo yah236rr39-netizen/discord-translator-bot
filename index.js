@@ -1,7 +1,7 @@
 const http = require('http');
 const { Client, GatewayIntentBits } = require('discord.js');
 // 1. 換掉 axios，改用這個
-const { translate } = require('@vitalets/google-translate-api');
+const { translate } = require('google-translate-api-x');
 
 // 1. 防止 Render 休息 (維持原樣)
 http.createServer((req, res) => {

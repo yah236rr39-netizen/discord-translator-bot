@@ -19,13 +19,14 @@ const client = new Client({
   ],
 });
 
-// 3. 頻道設定 (已加入韓文 ko 頻道)
+// 3. 頻道設定 (已加入韓文 ko 與德文 de 頻道)
 const channels = {
   zh: '1496614451812503572',
   cn: '1496463528326991913',
   en: '1496562571480666183',
   vi: '1496562468707631205',
-  ko: '1518181527316467785' // 👈 兄弟，這裡記得填入你的韓文頻道 ID
+  ko: '1518181527316467785',
+  de: '1538664159942807583' // 👈 兄弟，這裡記得填入你的德文頻道 ID
 };
 
 // 4. 翻譯功能 (核心防封鎖配置)
@@ -53,7 +54,7 @@ client.on('ready', () => {
   console.log(`✅ 兄弟！SUn 翻譯官 [${client.user.tag}] 成功上線！`);
 });
 
-// 6. 核心邏輯 (融入中文不互翻、韓文自動同步邏輯)
+// 6. 核心邏輯 (融入中文不互翻、多國語言自動同步邏輯)
 client.on('messageCreate', async (msg) => {
   if (msg.author.bot) return;
 
@@ -67,7 +68,8 @@ client.on('messageCreate', async (msg) => {
     cn: { lang: 'zh-CN', emoji: '🇨🇳' },
     en: { lang: 'en',    emoji: '🇺🇸' },
     vi: { lang: 'vi',    emoji: '🇻🇳' },
-    ko: { lang: 'ko',    emoji: '🇰🇷' }
+    ko: { lang: 'ko',    emoji: '🇰🇷' },
+    de: { lang: 'de',    emoji: '🇩🇪' }
   };
 
   // 過濾掉發話頻道本身
